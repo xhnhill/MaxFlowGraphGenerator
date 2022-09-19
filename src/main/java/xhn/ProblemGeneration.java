@@ -23,12 +23,16 @@ public class ProblemGeneration {
     public static void main(String[] args) throws IOException {
         boolean ifTest = false;
         //test();
-        if(ifTest) return;
+        if(ifTest){
+            generateSingle(10000,50000,1,6);
+            return;
+        }
         int nv = Integer.parseInt(args[0]);
         int ne = Integer.parseInt(args[1]);
         int num = Integer.parseInt(args[2]);
         int dir_idx = Integer.parseInt(args[3]);
-        generateAll(nv,ne,num,dir_idx);
+        //generateAll(nv,ne,num,dir_idx);
+        generateAllParallel(nv,ne,num,dir_idx);
     }
     private static void test() throws FileNotFoundException {
         Scanner sc = new Scanner(new File("graph.txt"));
@@ -56,13 +60,89 @@ public class ProblemGeneration {
         System.out.println(alg.getMaximumFlowValue(23,26));
     }
 
+    static void generateSingle(int nv, int ne, int num_file, int dir_idx) throws IOException{
+        Path path = Paths.get(""+dir_idx);
+        generateInfoFile(nv,ne,num_file);
+        if(!Files.exists(path)){
+            Files.createDirectory(path);
+        }
+        for(int i=0;i<num_file;i++){
+
+            Path tp = Paths.get(""+dir_idx,""+(i+1));
+            GraphGenerator gg = new GraphGenerator(nv,ne);
+            MaximumFlowProblem maximumFlowProblem = gg.generate();
+            maximumFlowProblem.dumpCapacities();
+            Graph<Integer, DefaultWeightedEdge> g = maximumFlowProblem.getGraph();
+
+            EdmondsKarpMFImpl<Integer, DefaultWeightedEdge> alg = new EdmondsKarpMFImpl<>(maximumFlowProblem.getGraph());
+            int allMin =(int)alg.getMaximumFlowValue(1,nv);
+            convert(g);
+            BufferedWriter w = null;
+            try {
+                w = new BufferedWriter(new FileWriter(tp.toString()));
+                w.write(""+g.vertexSet().size()+" "+g.edgeSet().size()+" "+nv+" "+allMin+"\n");
+                writeEdgePair(g,w);
+                w.write(""+allMin);
+                w.flush();
+            } catch (IOException e) {
+                System.out.println("Failed to write.");
+            }
+        }
+    }
+    private static void generateAllParallel(int nv,int ne,int num_file,int dir_idx) throws IOException{
+        int cores = Runtime.getRuntime().availableProcessors();
+        Path path = Paths.get(""+dir_idx);
+        generateInfoFile(nv,ne,num_file);
+        if(!Files.exists(path)){
+            Files.createDirectory(path);
+        }
+        for(int ct=0;ct<Math.min(cores,num_file);ct++){
+            Thread thread = new Thread(new Runnable() {
+                @Override
+                public void run() {
+                    for(int i =1;i<=num_file/Math.min(cores,num_file);i++){
+                        Path tp = Paths.get(""+dir_idx,""+(Integer.parseInt(Thread.currentThread().getName())*(num_file/Math.min(cores,num_file))+i));
+                        GraphGenerator gg = new GraphGenerator(nv,ne);
+                        MaximumFlowProblem maximumFlowProblem = gg.generate();
+                        maximumFlowProblem.dumpCapacities();
+                        Graph<Integer, DefaultWeightedEdge> g = maximumFlowProblem.getGraph();
+                        int[][] mfs = new int[nv][nv];
+
+                        EdmondsKarpMFImpl<Integer, DefaultWeightedEdge> alg = new EdmondsKarpMFImpl<>(maximumFlowProblem.getGraph());
+                        int allMin =Integer.MAX_VALUE;
+                        for(int p = 1;p<=nv;p++){
+                            for(int q =1;q<=nv;q++){
+                                if(p == q) continue;
+                                mfs[p-1][q-1] = (int)alg.getMaximumFlowValue(p,q);
+                                allMin =Math.min(mfs[p-1][q-1],allMin);
+                            }
+                        }
+                        convert(g);
+                        BufferedWriter w = null;
+                        try {
+                            w = new BufferedWriter(new FileWriter(tp.toString()));
+                            w.write(""+g.vertexSet().size()+" "+g.edgeSet().size()+" "+nv+" "+allMin+"\n");
+                            writeEdgePair(g,w);
+                            writeMatrix(mfs,w);
+                            w.write(""+allMin);
+                            w.flush();
+                        } catch (IOException e) {
+                            System.out.println("Failed to write.");
+                        }
+
+                    }
+                }
+            },""+ct);
+            thread.start();
+        }
+
+    }
     private static void generateAll(int nv,int ne,int num_file,int dir_idx) throws IOException {
         Path path = Paths.get(""+dir_idx);
         generateInfoFile(nv,ne,num_file);
         if(!Files.exists(path)){
             Files.createDirectory(path);
         }
-
 
         for(int i =1;i<=num_file;i++){
             Path tp = Paths.get(""+dir_idx,""+i);
@@ -104,6 +184,7 @@ public class ProblemGeneration {
         String fn = ""+nv+"x"+ne;
         BufferedWriter bufferedWriter = new BufferedWriter(new FileWriter(fn));
         bufferedWriter.write(""+nv+" "+ne+" "+num_file);
+        bufferedWriter.flush();
 
     }
     private static void export(Graph<Integer, DefaultWeightedEdge> g,Writer w) throws IOException {

@@ -17,7 +17,7 @@ public class GraphGenerator {
     private NetworkGenerator<Integer, DefaultWeightedEdge> networkGenerator;
     GraphGenerator(){
         this.configBuilder = new NetworkGeneratorConfigBuilder();
-        this.configBuilder.setMaximumFlowProblemParams(4,5,20,1,1);
+        this.configBuilder.setMaximumFlowProblemParams(4,5,20,1,20);
         this.networkGenerator = new NetworkGenerator<>(this.configBuilder.build());
     }
     GraphGenerator(int num_v,int num_e){

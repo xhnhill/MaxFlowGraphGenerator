@@ -1,3 +1,5 @@
 xhn\GraphGenerator.class
-xhn\ProblemGeneration.class
+xhn\ProblemGenerationSingle.class
 xhn\VertexSipplier.class
+xhn\ProblemGeneration$1.class
+xhn\ProblemGeneration.class
